@@ -37,8 +37,10 @@ public class IoTServer {
     public void start() {
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("IoTServer started on port " + port);
+
             while (true) {
                 Socket socket = serverSocket.accept();
+                System.out.println("A new client is connecting!");
                 new ClientHandler(socket).start();
             }
         } catch (IOException e) {
@@ -116,21 +118,23 @@ public class IoTServer {
 
         @Override
         public void run() {
-            try (ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-                    ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+            System.out.println("Client connected: " + socket.getInetAddress().getHostAddress());
 
+            try (ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+                    ObjectInputStream in = new ObjectInputStream(socket.getInputStream());) {
+
+                System.out.println("Client connected: " + socket.getInetAddress().getHostAddress());
                 String userId = (String) in.readObject();
                 String password = (String) in.readObject();
 
-                if (!authenticate(userId, password)) {
-                    out.writeObject("WRONG-PWD");
-                    return;
-                }
-
-                if (registerUser(userId, password)) {
-                    out.writeObject("OK-NEW-USER");
-                } else {
+                if (authenticate(userId, password)) {
                     out.writeObject("OK-USER");
+                } else {
+                    if (registerUser(userId, password)) {
+                        out.writeObject("OK-NEW-USER");
+                    } else {
+                        out.writeObject("WRONG-PWD");
+                    }
                 }
 
                 String deviceId = (String) in.readObject();
@@ -144,8 +148,10 @@ public class IoTServer {
 
                 String programName = (String) in.readObject();
                 int programSize = in.readInt();
+                System.out.println("Program name: " + programName);
 
                 try (BufferedReader reader = new BufferedReader(new FileReader("program_info.txt"))) {
+                    System.out.println("Reading program_info.txt");
                     String line;
                     while ((line = reader.readLine()) != null) {
                         String[] parts = line.split(",");
