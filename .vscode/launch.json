@@ -1,0 +1,50 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Launch with Arguments Prompt",
+      "request": "launch",
+      "mainClass": "",
+      "args": "${command:SpecifyProgramArgs}"
+    },
+
+    {
+      "type": "java",
+      "name": "Current File",
+      "request": "launch",
+      "mainClass": "${file}"
+    },
+    {
+      "type": "java",
+      "name": "IoTDevice",
+      "request": "launch",
+      "mainClass": "IoTDevice",
+      "projectName": "Seg-IoT-2324_b34175ee"
+    },
+    {
+      "type": "java",
+      "name": "IoTServer",
+      "request": "launch",
+      "mainClass": "IoTServer",
+      "projectName": "Seg-IoT-2324_b34175ee"
+    },
+    {
+      "type": "java",
+      "name": "IoTDevice(1)",
+      "request": "launch",
+      "mainClass": "IoTDevice",
+      "projectName": "Seg-IoT-2324"
+    },
+    {
+      "type": "java",
+      "name": "IoTServer(1)",
+      "request": "launch",
+      "mainClass": "IoTServer",
+      "projectName": "Seg-IoT-2324"
+    }
+  ]
+}

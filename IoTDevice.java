@@ -78,7 +78,6 @@ public class IoTDevice {
             }
             if (response.equals("OK-DEVID")) {
                 System.out.println("Device ID registered");
-                return;
             }
 
             out.writeObject((String) "IoTDevice.class");
@@ -86,7 +85,7 @@ public class IoTDevice {
             filePath = filePath + IoTDevice.class.getName().replace(".", "/") + ".class";
             System.out.println("Program file path: " + filePath);
             System.out.println("Program file size: " + filePath.length() + " bytes");
-            out.writeInt((Integer) filePath.length());
+            out.writeObject(filePath.length());
 
             response = (String) in.readObject();
 
@@ -98,6 +97,7 @@ public class IoTDevice {
             System.out.println("Program validated by server");
 
             while (true) {
+                System.out.println();
                 System.out.println("Available commands:");
                 System.out.println("CREATE <dm>");
                 System.out.println("ADD <user1> <dm>");
@@ -107,6 +107,7 @@ public class IoTDevice {
                 System.out.println("RT <dm>");
                 System.out.println("RI <user-id>:<dev_id>");
                 System.out.print("Enter command: ");
+                System.out.println();
                 String command = scanner.nextLine();
                 String[] parts = command.split(" ");
                 String responseMessage = "";

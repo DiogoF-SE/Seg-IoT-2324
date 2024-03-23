@@ -1,6 +1,10 @@
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -32,6 +36,60 @@ public class IoTServer {
         this.domainPermissions = new HashMap<>();
         this.temperatureData = new HashMap<>();
         this.imageData = new HashMap<>();
+
+        // Create data directory if it doesn't exist
+        File dataDir = new File("data");
+        if (!dataDir.exists()) {
+            dataDir.mkdir();
+        }
+
+        // Load user data from file or create file if it doesn't exist
+        File usersFile = new File("data/users.txt");
+        if (usersFile.exists()) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(usersFile))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] parts = line.split(",");
+                    users.put(parts[0], parts[1]);
+                    domainPermissions.put(parts[0], new HashSet<>());
+                }
+            } catch (IOException e) {
+                System.err.println("Error loading user data: " + e.getMessage());
+            }
+        } else {
+            try {
+                usersFile.createNewFile();
+            } catch (IOException e) {
+                System.err.println("Error creating users file: " + e.getMessage());
+            }
+        }
+
+        // Load device data from file or create file if it doesn't exist
+        File devicesFile = new File("data/devices.txt");
+        if (devicesFile.exists()) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(devicesFile))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] parts = line.split(",");
+                    String deviceId = parts[0];
+                    String domain = parts[1];
+                    if (!domains.containsKey(domain)) {
+                        domains.put(domain, new HashSet<>());
+                    }
+                    domains.get(domain).add(deviceId);
+                    temperatureData.put(deviceId, null);
+                    imageData.put(deviceId, null);
+                }
+            } catch (IOException e) {
+                System.err.println("Error loading device data: " + e.getMessage());
+            }
+        } else {
+            try {
+                devicesFile.createNewFile();
+            } catch (IOException e) {
+                System.err.println("Error creating devices file: " + e.getMessage());
+            }
+        }
     }
 
     public void start() {
@@ -59,6 +117,15 @@ public class IoTServer {
         }
         users.put(userId, password);
         domainPermissions.put(userId, new HashSet<>());
+
+        // Write user data to file
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("data/users.txt", true))) {
+            writer.write(userId + "," + password);
+            writer.newLine();
+        } catch (IOException e) {
+            System.err.println("Error writing user data: " + e.getMessage());
+        }
+
         return true;
     }
 
@@ -73,6 +140,15 @@ public class IoTServer {
         devices.add(deviceId);
         temperatureData.put(deviceId, null);
         imageData.put(deviceId, null);
+
+        // Write device data to file
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("data/devices.txt", true))) {
+            writer.write(deviceId + "," + domain);
+            writer.newLine();
+        } catch (IOException e) {
+            System.err.println("Error writing device data: " + e.getMessage());
+        }
+
         return true;
     }
 
@@ -89,7 +165,29 @@ public class IoTServer {
             return false; // domain does not exist
         }
         Set<String> permissions = domainPermissions.get(domain);
-        return permissions.contains(userId);
+        if (permissions.contains(userId)) {
+            return true;
+        }
+
+        // Check if user has permission in file
+        try (BufferedReader reader = new BufferedReader(new FileReader("data/users.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts[0].equals(userId) && parts.length > 2) {
+                    for (int i = 2; i < parts.length; i++) {
+                        if (parts[i].equals(domain)) {
+                            permissions.add(userId);
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading user data: " + e.getMessage());
+        }
+
+        return false;
     }
 
     private synchronized boolean registerTemperatureData(String deviceId, float temperature) {
@@ -118,7 +216,6 @@ public class IoTServer {
 
         @Override
         public void run() {
-            System.out.println("Client connected: " + socket.getInetAddress().getHostAddress());
 
             try (ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
                     ObjectInputStream in = new ObjectInputStream(socket.getInputStream());) {
@@ -147,22 +244,21 @@ public class IoTServer {
                 out.writeObject("OK-DEVID");
 
                 String programName = (String) in.readObject();
-                int programSize = in.readInt();
-                System.out.println("Program name: " + programName);
+                int programSize = (Integer) in.readObject();
 
-                try (BufferedReader reader = new BufferedReader(new FileReader("program_info.txt"))) {
-                    System.out.println("Reading program_info.txt");
+                try (BufferedReader reader = new BufferedReader(new FileReader("teste.txt"))) {
                     String line;
+                    String frespond = "NOK-TESTED";
                     while ((line = reader.readLine()) != null) {
                         String[] parts = line.split(",");
                         if (parts[0].equals(programName) && Integer.parseInt(parts[1]) == programSize) {
-                            out.writeObject("OK-TESTED");
+                            frespond = "OK-TESTED";
                             break;
                         }
                     }
-                    out.writeObject("NOK-TESTED");
+                    out.writeObject(frespond);
                 } catch (IOException e) {
-                    System.err.println("Error reading program_info.txt: " + e.getMessage());
+                    System.err.println("Error reading" + e.getMessage());
                     out.writeObject("NOK-TESTED");
                 }
 
@@ -258,17 +354,28 @@ public class IoTServer {
                                 response = "You do not have permission to read data from this domain";
                                 break;
                             }
-                            Set<String> devices = domains.get(domainToRead);
-                            for (String device : devices) {
-                                Float temperatureValue = temperatureData.get(device);
-                                if (temperatureValue != null) {
-                                    response += device + ": " + temperatureValue + "\n";
+
+                            // Read temperature data from file
+                            try (BufferedReader reader = new BufferedReader(
+                                    new FileReader("data/temperature_" + domainToRead + ".txt"))) {
+                                String line;
+                                while ((line = reader.readLine()) != null) {
+                                    String[] parts2 = line.split(",");
+                                    String deviceId2 = parts2[0];
+                                    float temperatureValue = Float.parseFloat(parts2[1]);
+                                    if (temperatureValue != 0) {
+                                        response += deviceId2 + ": " + temperatureValue + "\n";
+                                    }
                                 }
-                            }
-                            if (response.isEmpty()) {
+                                if (response.isEmpty()) {
+                                    response = "No temperature data available for this domain";
+                                }
+                            } catch (IOException e) {
+                                System.err.println("Error reading temperature data: " + e.getMessage());
                                 response = "No temperature data available for this domain";
                             }
                             break;
+
                         case "RI":
                             if (parts.length != 2) {
                                 response = "Invalid command";
@@ -282,13 +389,21 @@ public class IoTServer {
                                 response = "You do not have permission to read image data from this device";
                                 break;
                             }
-                            byte[] imageDataValue = imageData.get(deviceToRead);
-                            if (imageDataValue != null) {
-                                out.writeObject(imageDataValue);
-                            } else {
+
+                            // Read image data from file
+                            try (FileInputStream fis = new FileInputStream("data/image_" + deviceToRead + ".jpg")) {
+                                byte[] imageDataValue = fis.readAllBytes();
+                                if (imageDataValue != null) {
+                                    out.writeObject(imageDataValue);
+                                } else {
+                                    response = "No image data available for this device";
+                                }
+                            } catch (IOException e) {
+                                System.err.println("Error reading image data: " + e.getMessage());
                                 response = "No image data available for this device";
                             }
                             break;
+
                         default:
                             response = "Invalid command";
                             break;
