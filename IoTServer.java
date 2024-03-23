@@ -246,19 +246,11 @@ public class IoTServer {
                 String programName = (String) in.readObject();
                 int programSize = (Integer) in.readObject();
 
-                try (BufferedReader reader = new BufferedReader(new FileReader("teste.txt"))) {
-                    String line;
-                    String frespond = "NOK-TESTED";
-                    while ((line = reader.readLine()) != null) {
-                        String[] parts = line.split(",");
-                        if (parts[0].equals(programName) && Integer.parseInt(parts[1]) == programSize) {
-                            frespond = "OK-TESTED";
-                            break;
-                        }
-                    }
-                    out.writeObject(frespond);
-                } catch (IOException e) {
-                    System.err.println("Error reading" + e.getMessage());
+                File file = new File("IoTDevice.class");
+                if (file.exists() && file.isFile() && file.getName().equals(programName)
+                        && file.length() == programSize) {
+                    out.writeObject("OK-TESTED");
+                } else {
                     out.writeObject("NOK-TESTED");
                 }
 

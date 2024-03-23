@@ -12,8 +12,6 @@ public class IoTDevice {
     private int serverPort;
     private int deviceId;
     private String userId;
-    private String programName;
-    private int programSize;
 
     public static void main(String[] args) {
         if (args.length < 3 || args.length > 4) {
@@ -83,9 +81,10 @@ public class IoTDevice {
             out.writeObject((String) "IoTDevice.class");
             String filePath = IoTDevice.class.getProtectionDomain().getCodeSource().getLocation().getPath();
             filePath = filePath + IoTDevice.class.getName().replace(".", "/") + ".class";
-            System.out.println("Program file path: " + filePath);
-            System.out.println("Program file size: " + filePath.length() + " bytes");
-            out.writeObject(filePath.length());
+
+            File file = new File(filePath);
+            int fileSize = (int) file.length();
+            out.writeObject(fileSize);
 
             response = (String) in.readObject();
 
