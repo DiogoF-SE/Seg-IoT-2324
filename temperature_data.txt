@@ -1,0 +1,2 @@
+Device: user1:1  Last temperature: 22.0
+

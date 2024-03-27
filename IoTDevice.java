@@ -1,9 +1,14 @@
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 public class IoTDevice {
@@ -52,15 +57,19 @@ public class IoTDevice {
             switch (response) {
                 case "WRONG-PWD":
                     System.out.println("Invalid password");
+                    System.out.println();
                     return;
                 case "OK-NEW-USER":
                     System.out.println("User registered");
+                    System.out.println();
                     break;
                 case "OK-USER":
                     System.out.println("User authenticated");
+                    System.out.println();
                     break;
                 default:
                     System.out.println("Unexpected response from server: " + response);
+                    System.out.println();
                     return;
             }
 
@@ -69,8 +78,10 @@ public class IoTDevice {
             response = (String) in.readObject();
 
             while (response.equals("NOK-DEVID")) {
-                System.out.print("Device ID already in use, enter new ID: ");
+                System.out.println();
+                System.out.print("UserID:Device ID already in use, enter new ID: ");
                 deviceId = scanner.nextInt();
+                scanner.nextLine(); // consume newline character
                 out.writeObject(Integer.toString(deviceId));
                 response = (String) in.readObject();
             }
@@ -89,24 +100,30 @@ public class IoTDevice {
             response = (String) in.readObject();
 
             if (response.equals("NOK-TESTED")) {
+                System.out.println();
                 System.out.println("Program not validated by server");
                 return;
             }
-
+            System.out.println();
             System.out.println("Program validated by server");
 
+            System.out.println();
+            System.out.println("----- IoT Device started -----");
+            System.out.println();
+            System.out.println("Available commands:");
+            System.out.println();
+            System.out.println("CREATE <dm>");
+            System.out.println("ADD <user1> <dm>");
+            System.out.println("RD <dm>");
+            System.out.println("ET <float>");
+            System.out.println("EI <filename.jpg>");
+            System.out.println("RT <dm>");
+            System.out.println("RI <user-id>:<dev_id>");
+
             while (true) {
+
                 System.out.println();
-                System.out.println("Available commands:");
-                System.out.println("CREATE <dm>");
-                System.out.println("ADD <user1> <dm>");
-                System.out.println("RD <dm>");
-                System.out.println("ET <float>");
-                System.out.println("EI <filename.jpg>");
-                System.out.println("RT <dm>");
-                System.out.println("RI <user-id>:<dev_id>");
                 System.out.print("Enter command: ");
-                System.out.println();
                 String command = scanner.nextLine();
                 String[] parts = command.split(" ");
                 String responseMessage = "";
@@ -122,30 +139,67 @@ public class IoTDevice {
                         responseMessage = (String) in.readObject();
                         break;
                     case "EI":
-                        // Send command to server
-                        out.writeObject(parts[0]);
-                        // Read image file
-                        File imageFile = new File(parts[1]);
-                        byte[] imageData = new byte[(int) imageFile.length()];
-                        try (FileInputStream fileInputStream = new FileInputStream(imageFile)) {
-                            fileInputStream.read(imageData);
-                        } catch (IOException e) {
-                            System.err.println("Error reading image file: " + e.getMessage());
+                        if (parts.length != 2) {
+                            responseMessage = "Invalid command";
                             break;
                         }
-                        // Send image data to server
+                        String fileName = parts[1];
+                        File imageFile = new File("clientImages/" + fileName);
+                        if (!imageFile.exists()) {
+                            responseMessage = "File not found";
+                            break;
+                        }
+                        byte[] imageData = Files.readAllBytes(imageFile.toPath());
+                        out.writeObject(command);
                         out.writeObject(imageData);
-                        // Receive response from server
                         responseMessage = (String) in.readObject();
                         break;
+
                     case "RT":
-                    case "RI":
-                        // Send command to server
+                        if (parts.length != 2) {
+                            responseMessage = "Invalid command";
+                            break;
+                        }
                         out.writeObject(command);
-                        // Receive response from server
-                        responseMessage = (String) in.readObject();
-                        // Print response to console
-                        System.out.println(responseMessage);
+                        response = (String) in.readObject();
+                        if (!response.startsWith("OK")) {
+                            responseMessage = response;
+                        }
+                        long dataSize = in.readLong();
+                        StringBuilder data = new StringBuilder();
+                        while (data.length() < dataSize) {
+                            data.append(in.readChar());
+                        }
+                        System.out.println("Data size: " + dataSize);
+                        System.out.println("Data: " + data.toString());
+                        try (BufferedWriter writer = new BufferedWriter(new FileWriter("temperature_data.txt", true))) {
+                            writer.write(data.toString());
+                        } catch (IOException e) {
+                            System.err.println("Error writing temperature data: " + e.getMessage());
+                        }
+                        break;
+                    case "RI":
+                        if (parts.length != 2) {
+                            responseMessage = "Invalid command";
+                            break;
+                        }
+                        out.writeObject(command);
+                        response = (String) in.readObject();
+                        if (!response.startsWith("OK")) {
+                            responseMessage = response;
+                        }
+                        long imageSize = in.readLong();
+
+                        byte[] iData = new byte[(int) imageSize];
+                        in.readFully(iData);
+
+                        // Save byte array as image file
+                        Path receivedImagesPath = Paths.get("receivedImages");
+                        if (!Files.exists(receivedImagesPath)) {
+                            Files.createDirectory(receivedImagesPath);
+                        }
+                        Path imagePath = receivedImagesPath.resolve("image.jpg");
+                        Files.write(imagePath, iData);
                         break;
                     default:
                         System.out.println("Invalid command");
@@ -159,6 +213,10 @@ public class IoTDevice {
 
         } catch (IOException | ClassNotFoundException e) {
             System.err.println("Error communicating with server: " + e.getMessage());
+        } catch (NoSuchElementException e) {
+            // handle CTRL+C gracefully
+            System.out.println("Program terminated by user.");
+            System.exit(0);
         }
     }
 }
