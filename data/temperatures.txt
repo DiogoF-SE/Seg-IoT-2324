@@ -1,2 +1,1 @@
-Carolina:1,28.0
-diogo:15,13.0
+Luci:1,22.0

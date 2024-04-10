@@ -168,8 +168,10 @@ public class IoTDevice {
                         out.writeObject(command);
                         response = (String) in.readObject();
                         if (!response.startsWith("OK")) {
-                            responseMessage = "OK";
+                            System.out.println(response);
+                            break;
                         }
+                        System.out.println(response);
                         long dataSize = in.readLong();
                         StringBuilder data = new StringBuilder();
                         while (data.length() < dataSize) {

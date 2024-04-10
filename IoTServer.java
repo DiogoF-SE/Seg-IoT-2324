@@ -571,8 +571,13 @@ public class IoTServer {
                                 break;
                             }
                             Set<String> devices = domains.get(domainToRead);
+
                             if (devices == null || devices.isEmpty()) {
                                 response = "NODM";
+                                break;
+                            }
+                            if ((devices.size() == 1 && devices.contains(":"))) {
+                                response = "NODATA";
                                 break;
                             }
                             StringBuilder data = new StringBuilder();
@@ -584,10 +589,7 @@ public class IoTServer {
                                     data.append("\n");
                                 }
                             }
-                            if (data.length() == 0) {
-                                response = "NODATA";
-                                break;
-                            }
+
                             response = "OK";
                             out.writeObject(response);
                             out.writeLong(data.length());
