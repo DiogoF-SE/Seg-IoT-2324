@@ -44,6 +44,7 @@ public class IoTDevice {
         try (Socket socket = new Socket(serverAddress, serverPort);
                 ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
                 ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+
                 Scanner scanner = new Scanner(System.in)) {
 
             System.out.print("Enter password: ");
@@ -72,7 +73,10 @@ public class IoTDevice {
                     System.out.println();
                     return;
             }
-
+            File directory = new File("clientImages");
+            if (!directory.exists()) {
+                directory.mkdir();
+            }
             out.writeObject(Integer.toString(deviceId));
 
             response = (String) in.readObject();
@@ -144,6 +148,7 @@ public class IoTDevice {
                             break;
                         }
                         String fileName = parts[1];
+
                         File imageFile = new File("clientImages/" + fileName);
                         if (!imageFile.exists()) {
                             responseMessage = "File not found";
@@ -163,15 +168,14 @@ public class IoTDevice {
                         out.writeObject(command);
                         response = (String) in.readObject();
                         if (!response.startsWith("OK")) {
-                            responseMessage = response;
+                            responseMessage = "OK";
                         }
                         long dataSize = in.readLong();
                         StringBuilder data = new StringBuilder();
                         while (data.length() < dataSize) {
                             data.append(in.readChar());
                         }
-                        System.out.println("Data size: " + dataSize);
-                        System.out.println("Data: " + data.toString());
+
                         try (BufferedWriter writer = new BufferedWriter(new FileWriter("temperature_data.txt", true))) {
                             writer.write(data.toString());
                         } catch (IOException e) {
@@ -186,7 +190,7 @@ public class IoTDevice {
                         out.writeObject(command);
                         response = (String) in.readObject();
                         if (!response.startsWith("OK")) {
-                            responseMessage = response;
+                            responseMessage = "OK";
                         }
                         long imageSize = in.readLong();
 
@@ -214,7 +218,7 @@ public class IoTDevice {
         } catch (IOException | ClassNotFoundException e) {
             System.err.println("Error communicating with server: " + e.getMessage());
         } catch (NoSuchElementException e) {
-            // handle CTRL+C gracefully
+            // handle CTRL+C
             System.out.println("Program terminated by user.");
             System.exit(0);
         }

@@ -4,13 +4,13 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -299,6 +299,13 @@ public class IoTServer {
         return true;
     }
 
+    private synchronized boolean domainExists(String userId, String domain) {
+        if (!domains.containsKey(domain)) {
+            return false; // domain does not exist
+        }
+        return true;
+    }
+
     private synchronized boolean hasDomainPermission(String userId, String domain) {
         if (!domains.containsKey(domain)) {
             return false; // domain does not exist
@@ -408,6 +415,9 @@ public class IoTServer {
             this.socket = socket;
         }
 
+        String userId = null;
+        String deviceId = null;
+
         @Override
         public void run() {
 
@@ -415,7 +425,7 @@ public class IoTServer {
                     ObjectInputStream in = new ObjectInputStream(socket.getInputStream());) {
 
                 System.out.println("Client connected: " + socket.getInetAddress().getHostAddress());
-                String userId = (String) in.readObject();
+                userId = (String) in.readObject();
                 String password = (String) in.readObject();
 
                 if (authenticate(userId, password)) {
@@ -428,7 +438,7 @@ public class IoTServer {
                     }
                 }
 
-                String deviceId = (String) in.readObject();
+                deviceId = (String) in.readObject();
 
                 while (onlineUsers.contains(userId + ":" + deviceId)) {
                     out.writeObject("NOK-DEVID");
@@ -483,6 +493,10 @@ public class IoTServer {
                             }
                             String userToAdd = parts[1];
                             String domainToAdd = parts[2];
+                            if (!domainExists(userId, domainToAdd)) {
+                                response = "NODM";
+                                break;
+                            }
                             if (!hasDomainPermission(userId, domainToAdd)) {
                                 response = "NOPERM";
                                 break;
@@ -503,6 +517,10 @@ public class IoTServer {
                                 break;
                             }
                             String domainToRegister = parts[1];
+                            if (!domainExists(userId, domainToRegister)) {
+                                response = "NODM";
+                                break;
+                            }
                             if (!hasDomainPermission(userId, domainToRegister)) {
                                 response = "NOPERM";
                                 break;
@@ -515,6 +533,12 @@ public class IoTServer {
                             break;
                         case "ET":
                             if (parts.length != 2) {
+                                response = "NOK";
+                                break;
+                            }
+                            try {
+                                Float.parseFloat(parts[1]);
+                            } catch (NumberFormatException e) {
                                 response = "NOK";
                                 break;
                             }
@@ -595,10 +619,6 @@ public class IoTServer {
                             out.writeLong(imageData.length);
                             out.write(imageData);
                             break;
-                        case "QUIT":
-                            onlineUsers.remove(userId + ":" + deviceId);
-                            response = "OK";
-                            break;
                         default:
                             response = "Invalid command";
                             break;
@@ -607,8 +627,11 @@ public class IoTServer {
                     out.writeObject(response);
                 }
 
+            } catch (SocketException e) {
+                System.out.println(userId + " has left");
+                onlineUsers.remove(userId + ":" + deviceId);
             } catch (IOException | ClassNotFoundException e) {
-                System.err.println("Error handling client request: " + e.getMessage());
+                onlineUsers.remove(userId + ":" + deviceId);
             }
         }
     }

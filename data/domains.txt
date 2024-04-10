@@ -1,1 +1,2 @@
-R:1,:user1,::user1
+sala:15,:diogo,::diogo
+janela:15,1,:diogo,Carolina,:diogo,:Carolina

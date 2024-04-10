@@ -1,2 +1,6 @@
-Device: user1:1  Last temperature: 22.0
+Device: Carolina:1  Last temperature: 28.0
+
+Device: Carolina:1  Last temperature: 28.0
+
+Device: diogo:15  Last temperature: 13.0
 

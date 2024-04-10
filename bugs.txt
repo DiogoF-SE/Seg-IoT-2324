@@ -1,0 +1,5 @@
+Rebenta quando tento ler temperaturas se nao existirem; No lado do servidor lanca a response correta, ver o erro no lado do servidor;
+
+
+
+
